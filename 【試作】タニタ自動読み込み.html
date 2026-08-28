@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FORDAYS カラダチェック｜TANITA専用OCR v5</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+:root{
+  --ink:#18324a; --muted:#667788; --line:#dce6ee; --soft:#f6f9fb;
+  --brand:#0f6584; --brand2:#1987aa; --accent:#eef8fb; --good:#2c7a55;
+  --warn:#9a6b00; --bad:#a33;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif;background:#f2f6f8;color:var(--ink)}
+.wrap{max-width:820px;margin:auto;padding:18px 14px 56px}
+.hero{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white;border-radius:22px;padding:24px 20px;box-shadow:0 12px 30px rgba(15,101,132,.18)}
+.hero .mini{font-size:12px;opacity:.9;letter-spacing:.08em}
+.hero h1{font-size:28px;margin:6px 0 8px}
+.hero p{margin:0;line-height:1.7;font-size:14px}
+.card{background:white;border-radius:18px;padding:20px;margin-top:14px;box-shadow:0 6px 20px rgba(30,60,80,.07)}
+h2{font-size:20px;margin:0 0 14px}
+.step{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--brand);color:white;font-size:13px;margin-right:7px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+input,select{width:100%;border:1px solid #cbd8e2;border-radius:12px;padding:12px 11px;font-size:16px;background:white;color:var(--ink)}
+input.auto{border-color:#63a984;background:#f5fff9}
+input.missing{border-color:#d99;background:#fff8f8}
+.help{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+button{border:0;border-radius:13px;padding:13px 16px;font-weight:800;font-size:15px;cursor:pointer}
+.primary{background:var(--brand);color:white;flex:1}
+.secondary{background:#edf3f6;color:var(--ink)}
+.notice{font-size:12px;line-height:1.7;color:#566a78;background:#f7fafb;border-left:4px solid #9bb7c5;padding:12px;border-radius:8px}
+.warn{background:#fff8e8;border-left-color:#e0ad2f;color:#705415}
+.upload{border:2px dashed #b7ccd8;border-radius:16px;padding:18px;text-align:center;background:#fbfdfe}
+.upload input{border:0;padding:8px}
+.previewwrap{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+@media(max-width:560px){.previewwrap{grid-template-columns:1fr}}
+.preview{width:100%;max-height:360px;object-fit:contain;border-radius:12px;display:none;background:#f3f5f6}
+.cropLabel{font-size:11px;color:var(--muted);margin:4px}
+.progress{display:none;margin-top:12px}
+.bar{height:10px;background:#e7eef2;border-radius:999px;overflow:hidden}
+.bar>div{height:100%;width:0;background:var(--brand);transition:width .2s}
+.status{font-size:12px;color:var(--muted);margin-top:6px}
+.verify,.result{display:none}
+.tag{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--accent);color:var(--brand);font-size:12px;font-weight:800;margin:3px 4px 3px 0}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.kpi>div{background:var(--soft);border-radius:13px;padding:12px;text-align:center}
+.kpi b{display:block;font-size:19px;margin-top:3px}
+.kpi span{font-size:11px;color:var(--muted)}
+@media(max-width:560px){.kpi{grid-template-columns:1fr 1fr}}
+.box{border:1px solid var(--line);border-radius:14px;padding:15px;margin:10px 0}
+.box h3{margin:0 0 7px;font-size:16px}
+.box p{margin:0;line-height:1.8;font-size:14px}
+.longAdvice{line-height:1.9;font-size:14px}
+.longAdvice b{color:var(--brand)}
+.divider{height:1px;background:var(--line);margin:10px 0}
+.product{border:1px solid #cfe1e8;border-radius:16px;padding:14px;margin:12px 0;background:#fbfdfe}
+.productHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.productHeader h3{margin:4px 0 8px;font-size:18px}
+.product .rank{font-size:11px;font-weight:800;color:var(--brand)}
+.product .reason{font-size:13px;line-height:1.75;margin:0}
+.productMeta{display:grid;grid-template-columns:130px 1fr;gap:14px;margin-top:10px;align-items:start}
+@media(max-width:560px){.productMeta{grid-template-columns:1fr}}
+.thumb{width:100%;height:130px;border-radius:14px;background:linear-gradient(135deg,#e8f3f7,#f8fbfd);border:1px solid #ddebf0;display:flex;align-items:center;justify-content:center;text-align:center;color:#4a7282;font-weight:800;padding:10px;font-size:15px}
+.productActions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.linkBtn{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:12px;background:var(--brand);color:#fff;text-decoration:none;font-weight:800;font-size:13px}
+.linkBtn.alt{background:#edf3f6;color:var(--ink)}
+.debug{white-space:pre-wrap;font:11px/1.5 ui-monospace,Consolas,monospace;background:#f6f8fa;border-radius:10px;padding:10px;max-height:160px;overflow:auto;display:none}
+.okline{font-size:12px;font-weight:700;color:var(--good);margin-top:8px}
+.badline{font-size:12px;font-weight:700;color:var(--bad);margin-top:8px}
+.footer{font-size:11px;color:#758792;line-height:1.65;margin-top:16px}
+.badge{display:inline-block;background:#eaf6ef;color:var(--good);font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+@media print{body{background:white}.actions,.hero p,.ocr-section{display:none}.card,.hero{box-shadow:none}.wrap{max-width:none}.result{display:block!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="mini">TANITA RECEIPT READER / v5</div>
+    <h1>FORDAYS カラダチェック</h1>
+    <p>TANITAの印字票を読み取り、体組成の傾向・見直しポイント・FORDAYS製品候補を、少し丁寧なコメント付きで表示する試作版です。</p>
+  </section>
+
+  <section class="card">
+    <div class="notice"><strong>v5の重要修正：</strong> 測定結果を“数字の並び順”で割り当てる方式を廃止しました。体重・体脂肪率・脂肪量・除脂肪量・筋肉量などを、TANITA票の各行位置から1項目ずつ個別に読み取ります。1項目のOCR失敗で後ろ全部がズレる事故を防ぐ設計です。</div>
+  </section>
+
+  <section class="card ocr-section">
+    <h2><span class="step">1</span>TANITA票を撮影 / 選択</h2>
+    <div class="upload">
+      <input id="photo" type="file" accept="image/*" capture="environment">
+      <div class="help">レシート全体を入れて、なるべく真上から撮影してください。背景が少し写っても、紙面を自動検出します。</div>
+      <div class="previewwrap">
+        <div><div class="cropLabel">元画像</div><img id="preview" class="preview"></div>
+        <div><div class="cropLabel">自動検出したTANITA票</div><img id="paperPreview" class="preview"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="ocrBtn" class="primary" onclick="runOCR()">TANITA票を読み取る</button>
+      <button class="secondary" onclick="fillDemo()">今回の正解値を入れる</button>
+    </div>
+    <div id="progress" class="progress"><div class="bar"><div id="barFill"></div></div><div id="status" class="status">準備中...</div></div>
+    <div id="quality"></div>
+    <div id="ocrRaw" class="debug"></div>
+  </section>
+
+  <section id="verify" class="card verify">
+    <h2><span class="step">2</span>読み取った数値を確認</h2>
+    <div class="notice warn">自動入力は補助です。<strong>印字票と見比べ、違う数値だけ修正</strong>してください。緑の欄は写真から自動取得できた項目です。</div>
+    <div class="grid" style="margin-top:14px">
+      <div><label>年齢</label><input id="age" type="number" min="18" max="100"></div>
+      <div><label>性別</label><select id="sex"><option value="">選択</option><option value="male">男性</option><option value="female">女性</option><option value="other">回答しない</option></select></div>
+      <div><label>身長 cm</label><input id="height" type="number" step="0.1"></div>
+      <div><label>体重 kg</label><input id="weight" type="number" step="0.1"></div>
+      <div><label>体脂肪率 %</label><input id="fat" type="number" step="0.1"></div>
+      <div><label>脂肪量 kg</label><input id="fatmass" type="number" step="0.1"></div>
+      <div><label>除脂肪量 kg</label><input id="lean" type="number" step="0.1"></div>
+      <div><label>筋肉量 kg</label><input id="muscle" type="number" step="0.1"></div>
+      <div><label>筋肉率 %</label><input id="musclerate" type="number" step="0.1"></div>
+      <div><label>体水分量 kg</label><input id="water" type="number" step="0.1"></div>
+      <div><label>体水分率 %</label><input id="waterrate" type="number" step="0.1"></div>
+      <div><label>推定骨量 kg</label><input id="bone" type="number" step="0.1"></div>
+      <div><label>基礎代謝 kcal</label><input id="bmr" type="number" step="1"></div>
+      <div><label>内臓脂肪レベル</label><input id="visceral" type="number" step="0.5"></div>
+      <div><label>BMI</label><input id="bmiPrint" type="number" step="0.1"></div>
+      <div><label>標準体重 kg</label><input id="stdweight" type="number" step="0.1"></div>
+      <div><label>肥満度 %</label><input id="obesity" type="number" step="0.1"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>気になることを教えてください</h2>
+    <div class="grid">
+      <div><label>いちばん気になること</label><select id="concern"><option value="none">特になし・健康維持</option><option value="shape">体型</option><option value="exercise">運動不足・筋肉</option><option value="gut">お腹</option><option value="sleep">睡眠</option><option value="eye">目</option><option value="knee">膝・関節</option><option value="memory">記憶・判断</option><option value="beauty">美容</option></select></div>
+      <div><label>運動頻度</label><select id="exercise"><option value="0">ほぼしない</option><option value="1">週1〜2回</option><option value="2">週3回以上</option></select></div>
+      <div><label>食生活で近いもの</label><select id="diet"><option value="none">特になし</option><option value="sweet">甘い物が多い</option><option value="carb">炭水化物が多い</option><option value="fatty">脂っぽい食事が多い</option><option value="veg">野菜不足</option></select></div>
+      <div><label>睡眠</label><select id="sleep"><option value="none">特に気にならない</option><option value="onset">寝つき</option><option value="wake">夜中に目が覚める</option><option value="morning">朝すっきりしない</option></select></div>
+      <div><label>PC・スマホ時間</label><select id="screen"><option value="low">少ない</option><option value="mid">普通</option><option value="high">多い</option></select></div>
+      <div><label>膝の不快感</label><select id="knee"><option value="none">ない</option><option value="sometimes">時々</option><option value="often">よくある</option></select></div>
+    </div>
+    <div class="actions"><button class="primary" onclick="analyze()">カラダチェック結果を見る</button></div>
+  </section>
+
+  <section id="result" class="card result">
+    <span class="badge">CHECK COMPLETE</span>
+    <h2 style="margin-top:9px">あなたのカラダチェック結果</h2>
+    <div id="tags"></div>
+    <div class="kpi">
+      <div><span>BMI</span><b id="outBMI">-</b></div>
+      <div><span>体脂肪率</span><b id="outFat">-</b></div>
+      <div><span>筋肉量</span><b id="outMuscle">-</b></div>
+    </div>
+
+    <div class="box">
+      <h3>今回のカラダ傾向</h3>
+      <div id="summary" class="longAdvice"></div>
+    </div>
+
+    <div class="box">
+      <h3>まず見直したいこと</h3>
+      <div id="advice" class="longAdvice"></div>
+    </div>
+
+    <div class="box">
+      <h3>今日からのひとこと提案</h3>
+      <div id="direction" class="longAdvice"></div>
+    </div>
+
+    <hr>
+    <h2>FORDAYS 製品候補</h2>
+    <p class="help">数値だけで商品を決めず、体組成＋本人の関心・生活習慣を合わせて最大3点を表示します。</p>
+    <div id="products"></div>
+
+    <div class="notice" style="margin-top:14px">製品は健康管理や食生活を支える選択肢としてご紹介しています。疾病の診断・治療・予防、体脂肪減少などの効果を保証するものではありません。強い症状、持病、妊娠・授乳、服薬中などがある場合は、医師・薬剤師へご相談ください。</div>
+    <div class="actions"><button class="secondary" onclick="window.print()">結果を印刷 / PDF保存</button><button class="secondary" onclick="resetAll()">最初から</button></div>
+  </section>
+
+  <div class="footer">試作版 v5.0｜TANITA DC-13C系の印字票レイアウトを前提にしたテンプレートOCR。商品画像は現段階ではプレースホルダー表示、正式版で公式画像差し替えが可能です。</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const autoIds = new Set();
+let sourceImage = null;
+$("photo").addEventListener("change", () => {
+  const f = $("photo").files[0];
+  if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    sourceImage = img;
+    $("preview").src = img.src;
+    $("preview").style.display = "block";
+  };
+  img.src = URL.createObjectURL(f);
+});
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function detectPaper(img){
+  const maxW = 900;
+  const scale = Math.min(1, maxW / img.naturalWidth);
+  const w = Math.round(img.naturalWidth * scale);
+  const h = Math.round(img.naturalHeight * scale);
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img,0,0,w,h);
+  const d = ctx.getImageData(0,0,w,h).data;
+  const step = 3;
+  const col = new Array(w).fill(0);
+  for(let y=0;y<h;y+=step){
+    for(let x=0;x<w;x+=step){
+      const i=(y*w+x)*4;
+      const r=d[i], g=d[i+1], b=d[i+2];
+      const lum=.299*r+.587*g+.114*b;
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+      if(lum>178 && mx-mn<68) col[x]+=1;
+    }
+  }
+  const maxC=Math.max(...col);
+  const xs=[];
+  for(let x=0;x<w;x++) if(col[x] > .34 * maxC) xs.push(x);
+  let x1 = xs.length ? Math.min(...xs) : Math.round(w*.28);
+  let x2 = xs.length ? Math.max(...xs) : Math.round(w*.72);
+  x1 = clamp(x1-12,0,w-1); x2 = clamp(x2+12,x1+20,w);
+  const width = x2 - x1;
+  const ys=[];
+  for(let y=0;y<h;y++){
+    let cnt=0;
+    for(let x=x1;x<x2;x+=step){
+      const i=(y*w+x)*4;
+      const r=d[i], g=d[i+1], b=d[i+2];
+      const lum=.299*r+.587*g+.114*b;
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+      if(lum>178 && mx-mn<68) cnt++;
+    }
+    if(cnt > (width/step) * .34) ys.push(y);
+  }
+  let y1 = ys.length ? Math.min(...ys) : Math.round(h*.03);
+  let y2 = ys.length ? Math.max(...ys) : Math.round(h*.98);
+  y1 = clamp(y1-10,0,h-1); y2 = clamp(y2+10,y1+50,h);
+  const inv = 1 / scale;
+  return {x:x1*inv, y:y1*inv, w:(x2-x1)*inv, h:(y2-y1)*inv};
+}
+function makeEnhancedCrop(img, box, targetW=1250){
+  const ratio = targetW / box.w;
+  const out = document.createElement("canvas");
+  out.width = targetW; out.height = Math.round(box.h * ratio);
+  const ctx = out.getContext("2d");
+  ctx.drawImage(img, box.x, box.y, box.w, box.h, 0, 0, out.width, out.height);
+  const im = ctx.getImageData(0,0,out.width,out.height), d = im.data;
+  for(let i=0;i<d.length;i+=4){
+    let gray = .299*d[i] + .587*d[i+1] + .114*d[i+2];
+    gray = (gray-128)*1.55 + 145;
+    gray = clamp(gray,0,255);
+    d[i]=d[i+1]=d[i+2]=gray;
+  }
+  ctx.putImageData(im,0,0);
+  return out;
+}
+function subCanvas(c,x0,y0,x1,y1){
+  const out=document.createElement("canvas");
+  const x=Math.round(c.width*x0), y=Math.round(c.height*y0), w=Math.round(c.width*(x1-x0)), h=Math.round(c.height*(y1-y0));
+  out.width=w; out.height=h;
+  out.getContext("2d").drawImage(c,x,y,w,h,0,0,w,h);
+  return out;
+}
+function nums(text){
+  return [...text.replace(/,/g,'.').matchAll(/-?\d{1,4}(?:\.\d{1,2})?/g)].map(m=>parseFloat(m[0]));
+}
+function setAuto(id,v){
+  if(v===null||v===undefined||!Number.isFinite(Number(v))) return;
+  $(id).value = v;
+  $(id).classList.remove("missing");
+  $(id).classList.add("auto");
+  autoIds.add(id);
+}
+function markMissing(){
+  ["age","height","weight","fat","muscle","bmr","visceral"].forEach(id=>{
+    if(!$(id).value) $(id).classList.add("missing");
+  });
+}
+function parseSingleNumber(text, min, max){
+  const a = nums(text).filter(n=>n>=min && n<=max);
+  if(!a.length) return null;
+  // Exact row crops should contain one main value; prefer first plausible number.
+  return a[0];
+}
+
+async function readMetricRows(paperCanvas){
+  // DC-13C sample receipt:
+  // Measurement block starts around 22.5% of receipt height and contains 11 rows.
+  // Each row is read independently to prevent a missed OCR value from shifting every later field.
+  const x0=.43, x1=.90;
+  const rows=[
+    {id:"weight",     y0:.228, y1:.250, min:30,   max:180},
+    {id:"fat",        y0:.249, y1:.271, min:3,    max:60},
+    {id:"fatmass",    y0:.270, y1:.292, min:2,    max:80},
+    {id:"lean",       y0:.291, y1:.313, min:25,   max:150},
+    {id:"muscle",     y0:.312, y1:.334, min:15,   max:100},
+    {id:"musclerate", y0:.333, y1:.355, min:30,   max:95},
+    {id:"water",      y0:.354, y1:.376, min:15,   max:90},
+    {id:"waterrate",  y0:.375, y1:.397, min:25,   max:80},
+    {id:"bone",       y0:.396, y1:.418, min:1,    max:6},
+    {id:"bmr",        y0:.417, y1:.441, min:800,  max:2600},
+    {id:"visceral",   y0:.440, y1:.462, min:1,    max:30},
+  ];
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i];
+    const crop=subCanvas(paperCanvas,x0,r.y0,x1,r.y1);
+    const text=await recognize(
+      crop,
+      "eng",
+      {"tessedit_char_whitelist":"0123456789.-","tessedit_pageseg_mode":"7"},
+      38 + i*3.2,
+      2.8
+    );
+    const n=parseSingleNumber(text,r.min,r.max);
+    setAuto(r.id,n);
+  }
+
+  const lower=[
+    {id:"bmiPrint",  y0:.472, y1:.497, min:12,  max:45},
+    {id:"stdweight", y0:.496, y1:.520, min:35,  max:100},
+    {id:"obesity",   y0:.519, y1:.544, min:-50, max:100},
+  ];
+  for(let i=0;i<lower.length;i++){
+    const r=lower[i];
+    const crop=subCanvas(paperCanvas,x0,r.y0,x1,r.y1);
+    const text=await recognize(
+      crop,
+      "eng",
+      {"tessedit_char_whitelist":"0123456789.-","tessedit_pageseg_mode":"7"},
+      73 + i*4,
+      3
+    );
+    const n=parseSingleNumber(text,r.min,r.max);
+    setAuto(r.id,n);
+  }
+}
+async function recognize(canvas, lang, params, progressBase, progressSpan){
+  const worker = await Tesseract.createWorker(lang, 1, {
+    logger:m=>{
+      if(m.progress) $("barFill").style.width = (progressBase + m.progress*progressSpan) + "%";
+      if(m.status) $("status").textContent = "読み取り中: " + m.status;
+    }
+  });
+  if(params) await worker.setParameters(params);
+  const r = await worker.recognize(canvas);
+  await worker.terminate();
+  return r.data.text || "";
+}
+async function runOCR(){
+  if(!sourceImage){ alert("TANITA票の写真を選択してください。"); return; }
+  $("ocrBtn").disabled = true;
+  $("progress").style.display = "block";
+  $("barFill").style.width = "2%";
+  $("status").textContent = "TANITA票を検出しています...";
+  $("quality").innerHTML = "";
+  try{
+    autoIds.forEach(id=>$(id).classList.remove("auto"));
+    autoIds.clear();
+    const box = detectPaper(sourceImage);
+    const paperCanvas = makeEnhancedCrop(sourceImage, box, 1300);
+    $("paperPreview").src = paperCanvas.toDataURL("image/jpeg", .9);
+    $("paperPreview").style.display = "block";
+
+    const inputCrop = subCanvas(paperCanvas,.10,.135,.93,.225);
+    const inputText = await recognize(inputCrop,"eng",{"tessedit_char_whitelist":"0123456789.","tessedit_pageseg_mode":"6"},8,24);
+    $("status").textContent = "測定結果を1項目ずつ読み取っています...";
+
+    const inums = nums(inputText);
+    const age = inums.find(n=>n>=18&&n<=100);
+    const height = inums.find(n=>n>=120&&n<=220);
+    setAuto("age", age);
+    setAuto("height", height);
+
+    await readMetricRows(paperCanvas);
+
+    $("status").textContent = "性別を確認しています...";
+    const fullText = await recognize(subCanvas(paperCanvas,.07,.12,.95,.24),"jpn+eng",{"tessedit_pageseg_mode":"6"},86,10);
+    if(/男性|男/.test(fullText)) $("sex").value = "male";
+    else if(/女性|女/.test(fullText)) $("sex").value = "female";
+
+    $("ocrRaw").textContent = "【入力欄 数字OCR】\n" + inputText + "\n\n【ラベル補助OCR】\n" + fullText + "\n\n※v5は測定結果を各行別にOCRしているため、順番ずれが連鎖しません。";
+    $("ocrRaw").style.display = "block";
+    markMissing();
+    $("verify").style.display = "block";
+
+    const core = ["weight","fat","muscle","bmr","visceral"];
+    const ok = core.filter(id=>$(id).value).length;
+    if(ok >= 5){
+      $("quality").innerHTML = '<div class="okline">✓ 主要5項目を自動取得しました。印字票と照合してください。</div>';
+    }else{
+      $("quality").innerHTML = `<div class="badline">主要項目 ${ok}/5 を取得。空欄や違う値だけ手入力してください。</div>`;
+    }
+    $("barFill").style.width = "100%";
+    $("status").textContent = "読み取り完了。印字票と数値を確認してください。";
+    $("verify").scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(e){
+    console.error(e);
+    $("status").textContent = "読み取りに失敗しました。手入力に切り替えてください。";
+    $("verify").style.display = "block";
+  }finally{
+    $("ocrBtn").disabled = false;
+  }
+}
+function fillDemo(){
+  const vals={age:32,height:168.0,weight:65.8,fat:23.2,fatmass:15.3,lean:50.5,muscle:47.9,musclerate:72.8,water:31.6,waterrate:48.0,bone:2.6,bmr:1417,visceral:9,bmiPrint:23.3,stdweight:62.1,obesity:6.0};
+  Object.entries(vals).forEach(([k,v])=>setAuto(k,v));
+  $("sex").value="male";
+  $("verify").style.display="block";
+  $("verify").scrollIntoView({behavior:"smooth"});
+}
+
+const PRODUCTS = {
+  burn:{name:"ボディランバー プロテイン バーンプラス", short:"体型管理 × 筋肉維持", url:"https://fordays.jp/products/burnplus.html", imgLabel:"プロテイン\nバーンプラス", text:"3種のプロテインを中心にビタミン、ミネラル、食物繊維を配合。トレーニング時のたんぱく質補給や、健康的な体型管理を考える方の候補です。"},
+  bcaa:{name:"BCAA & グルタミン DX", short:"運動習慣・アミノ酸補給", url:"https://fordays.jp/products/bcaa.html", imgLabel:"BCAA &\nグルタミン DX", text:"BCAAやグルタミンなどを配合。運動習慣がある方や、活動的な毎日・体づくりを意識する方の栄養補助候補です。"},
+  metablock:{name:"ボディランバー メタブロック", short:"食生活見直し", url:"https://fordays.jp/products/metablock.html", imgLabel:"メタブロック", text:"糖質の消化プロセスに着目したダイエットサポートサプリメント。甘い物や炭水化物が多いと感じる方の食生活見直しと合わせた候補です。"},
+  fiber:{name:"ファイバーミックス Bio", short:"お腹の調子", url:"https://fordays.jp/products/mix-bio.html", imgLabel:"ファイバー\nミックス Bio", text:"難消化性デキストリン（食物繊維）を含み、おなかの調子を整える機能性表示食品です。"},
+  night:{name:"ぐっナイト", short:"睡眠サポート", url:"https://fordays.jp/products/good-night.html", imgLabel:"ぐっナイト", text:"睡眠が気になる方の生活習慣見直しと合わせた機能性表示食品の候補です。"},
+  eye:{name:"アイリフレ クリア W", short:"目・VDT作業", url:"https://fordays.jp/products/irefre-cw.html", imgLabel:"アイリフレ\nクリア W", text:"眼の潤い、VDT作業による一時的な目の疲労感などをサポートする機能性表示食品です。"},
+  knee:{name:"Jチャージ", short:"膝・関節", url:"https://fordays.jp/products/j-charge.html", imgLabel:"Jチャージ", text:"サケ鼻軟骨由来プロテオグリカンを含み、膝関節の可動性をサポートする機能性表示食品です。"},
+  memory:{name:"記憶の極み", short:"記憶・判断", url:"https://fordays.jp/products/kiokuno-kiwami.html", imgLabel:"記憶の極み", text:"健常な中高年者の記憶力の精度や判断の正確さをサポートする機能性表示食品です。"},
+  green:{name:"青汁 & ファイバーミックス フレッシュ", short:"野菜不足", url:"https://fordays.jp/products/mix-flesh.html", imgLabel:"青汁 &\nファイバー", text:"大麦若葉など複数の素材を摂れる青汁。野菜不足を感じる方の食生活サポート候補です。"},
+  natural:{name:"核酸ドリンク ナチュラル DNコラーゲン", short:"健康維持", url:"https://fordays.jp/products/drink.html", imgLabel:"核酸ドリンク\nDNコラーゲン", text:"日々の健康維持を考える方への栄養補助の選択肢です。"}
+};
+
+function productReasonFromFlags(key){
+  const reasons = {
+    burn:"体型を見直したい気持ちがあり、筋肉を保ちながら体組成を整えていく方向と相性が良いため",
+    bcaa:"運動習慣や体づくりを意識していて、日々の活動をサポートする栄養補助として組み合わせやすいため",
+    metablock:"甘い物や炭水化物が多いという食生活の傾向があり、食生活の見直しと合わせて考えやすいため",
+    fiber:"お腹の調子が気になるという回答があり、その悩みに寄り添いやすい機能性表示食品のため",
+    night:"睡眠に関する気がかりがあり、眠りの質を意識したい人向けの候補として分かりやすいため",
+    eye:"PC・スマホ使用や目の疲れが気になり、日常的な見え方の負担に着目した製品だから",
+    knee:"膝の不快感があり、歩行や動きやすさを意識したい人の候補として説明しやすいため",
+    memory:"記憶・判断が気になる中高年層に向けた機能性表示食品だから",
+    green:"野菜不足を感じており、食生活全体の底上げを意識しやすいため",
+    natural:"特定の悩みよりも、まずは日々の健康維持を意識したい方向に合うため"
+  };
+  return reasons[key] || "今回の入力内容と生活習慣の傾向に合いそうなため";
+}
+
+function analyze(){
+  const h = parseFloat($("height").value);
+  const w = parseFloat($("weight").value);
+  const fat = parseFloat($("fat").value);
+  const muscle = parseFloat($("muscle").value);
+  const visceral = parseFloat($("visceral").value);
+  const age = parseFloat($("age").value);
+  if(!h || !w || !fat || !muscle){ alert("身長・体重・体脂肪率・筋肉量を確認してください。"); return; }
+
+  const bmi = w / ((h/100)**2);
+  $("outBMI").textContent = bmi.toFixed(1);
+  $("outFat").textContent = fat.toFixed(1) + "%";
+  $("outMuscle").textContent = muscle.toFixed(1) + "kg";
+
+  const sex = $("sex").value;
+  const concern = $("concern").value;
+  const exercise = parseInt($("exercise").value);
+  const diet = $("diet").value;
+  const sleep = $("sleep").value;
+  const screen = $("screen").value;
+  const knee = $("knee").value;
+
+  let fatFlag = false;
+  if(sex==="male" && fat>=20) fatFlag = true;
+  if(sex==="female" && fat>=30) fatFlag = true;
+  if(sex==="other" && fat>=25) fatFlag = true;
+  let bmiTag = (bmi<18.5) ? "低め" : (bmi<25 ? "標準域" : "高め");
+
+  const summaryParts = [];
+  summaryParts.push(`<b>BMI</b>は${bmi.toFixed(1)}で<strong>${bmiTag}</strong>の範囲です。`);
+  if(fatFlag){
+    summaryParts.push(`<b>体脂肪率</b>は${fat.toFixed(1)}%で、体型管理を考えるうえで少し意識したい数値です。`);
+  }else{
+    summaryParts.push(`<b>体脂肪率</b>は${fat.toFixed(1)}%で、急いで大きく減らすというより、今の状態を安定して保つ視点も持てそうです。`);
+  }
+  summaryParts.push(`<b>筋肉量</b>は${muscle.toFixed(1)}kgで、体重だけではなく筋肉量も一緒に見ながらバランスを考えるのがポイントです。`);
+  if(Number.isFinite(visceral)){
+    if(visceral >= 10) summaryParts.push(`<b>内臓脂肪レベル</b>は${visceral}で、食事・活動・睡眠を含めた生活習慣全体の見直しにつなげたいタイミングです。`);
+    else summaryParts.push(`<b>内臓脂肪レベル</b>は${visceral}で、極端に心配しすぎるというより、今のうちに良い習慣を積み重ねていく考え方が合いそうです。`);
+  }
+  summaryParts.push(`全体としては、<b>体重だけで判断せず、体脂肪率・筋肉量・日々の習慣を合わせて見る</b>ことが大切です。`);
+
+  const adviceParts = [];
+  if(bmi < 18.5){
+    adviceParts.push(`1. <b>まずは体重を減らすことより、必要なエネルギーをしっかり確保すること</b>を優先しましょう。食事量を極端に減らさず、たんぱく質・主食・副菜をバランスよく整えるのが基本です。`);
+  }else if(bmi >= 25){
+    adviceParts.push(`1. <b>急な食事制限より、続けやすい調整</b>を意識しましょう。間食の頻度、夕食量、甘い飲み物などを1つずつ見直すだけでも、体組成の変化につながりやすくなります。`);
+  }else{
+    adviceParts.push(`1. <b>今の体格を土台にしながら、体組成の質を整える</b>考え方がおすすめです。体重を大きく落とすより、筋肉を保ちながら体脂肪を少しずつ見直す方向が合いそうです。`);
+  }
+  if(fatFlag){
+    adviceParts.push(`2. <b>体脂肪率を意識するなら、我慢だけのダイエットより“整える習慣”を増やすこと</b>が大切です。主食量・間食・夜食のタイミングを見直しつつ、日常の歩数や軽い運動の機会を増やしていくと取り組みやすいです。`);
+  }else{
+    adviceParts.push(`2. <b>無理に減らすより、良い状態をキープする習慣づくり</b>が大切です。睡眠・食事・軽い運動のリズムを整えることが、今後の変化予防にもつながります。`);
+  }
+  if(exercise === 0){
+    adviceParts.push(`3. <b>運動はハードな内容でなくても大丈夫</b>です。まずは歩行、階段利用、スクワットなど、継続しやすい内容を週2回程度から始め、生活の中で“動く回数”を増やしていきましょう。`);
+  }else{
+    adviceParts.push(`3. <b>すでにある運動習慣は強み</b>です。運動後や日中の食事でたんぱく質を確保し、筋肉量を保ちながら継続することで、体型管理もしやすくなります。`);
+  }
+
+  const directionText = [];
+  directionText.push(`今回の方向性としては、<b>${fatFlag ? "筋肉を保ちながら体脂肪を管理する" : "今の体組成を保ちながら生活習慣を整える"}</b>ことが中心になります。`);
+  if(concern === "shape") directionText.push(`「体型」が気になっている場合は、短期間で数字だけを動かすより、食事内容と活動量の積み上げで見直していく方が続けやすいです。`);
+  if(concern === "exercise") directionText.push(`「運動不足・筋肉」が気になる場合は、たんぱく質摂取と運動習慣をセットで考えるのがおすすめです。`);
+  if(concern === "sleep") directionText.push(`睡眠が気になる場合は、就寝前のスマホ時間やカフェイン摂取の見直しも一緒に確認すると、より実感しやすいです。`);
+  if(concern === "eye") directionText.push(`目が気になる場合は、製品提案だけでなく、こまめな休憩や画面との距離など、日常の負担軽減も重要です。`);
+  if(concern === "knee") directionText.push(`膝が気になる場合は、強い痛みがあるときは無理をせず、必要に応じて医療機関への相談も考えましょう。`);
+  directionText.push(`製品はあくまで<b>生活習慣を支える選択肢</b>としてご覧ください。`);
+
+  const scored = [];
+  function add(key, score){ scored.push({key, score}); }
+  if(fatFlag || concern==="shape") add("burn", 5);
+  if(exercise >= 1 || concern==="exercise") add("bcaa", 4);
+  if(diet==="sweet" || diet==="carb") add("metablock", 4);
+  if(concern==="gut") add("fiber", 6);
+  if(sleep!=="none" || concern==="sleep") add("night", 6);
+  if(screen==="high" || concern==="eye") add("eye", 6);
+  if(knee!=="none" || concern==="knee") add("knee", 6);
+  if(concern==="memory" && Number.isFinite(age) && age >= 40) add("memory", 6);
+  if(diet==="veg") add("green", 4);
+  if(concern==="none") add("natural", 2);
+
+  const map = {};
+  scored.forEach(s => { if(!map[s.key] || s.score > map[s.key].score) map[s.key] = s; });
+  const tops = Object.values(map).sort((a,b)=>b.score-a.score).slice(0,3);
+  if(!tops.length) tops.push({key:"natural", score:1});
+
+  $("summary").innerHTML = summaryParts.map(x=>`<div>${x}</div>`).join("");
+  $("advice").innerHTML = adviceParts.map(x=>`<div>${x}</div>`).join("");
+  $("direction").innerHTML = directionText.map(x=>`<div>${x}</div>`).join("");
+
+  $("products").innerHTML = tops.map((s,i)=>{
+    const p = PRODUCTS[s.key];
+    const reason = productReasonFromFlags(s.key);
+    return `
+      <div class="product">
+        <div class="productHeader">
+          <div>
+            <div class="rank">候補 ${i+1}</div>
+            <h3>${p.name}</h3>
+          </div>
+          <span class="tag">${p.short}</span>
+        </div>
+        <p class="reason"><strong>今回候補にした理由：</strong>${reason}。</p>
+        <div class="productMeta">
+          <div class="thumb">${p.imgLabel.replace(/\n/g,"<br>")}</div>
+          <div>
+            <p class="reason">${p.text}</p>
+            <div class="divider"></div>
+            <p class="reason"><strong>使い方の見せ方：</strong> 生活習慣の見直しと一緒に考える「補助的な選択肢」として案内するのが自然です。</p>
+            <div class="productActions">
+              <a class="linkBtn" href="${p.url}" target="_blank" rel="noopener">公式製品情報を見る</a>
+              <a class="linkBtn alt" href="${p.url}" target="_blank" rel="noopener">製品ページURLを開く</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  $("tags").innerHTML = [
+    `<span class="tag">BMI ${bmiTag}</span>`,
+    fatFlag ? `<span class="tag">体脂肪を意識</span>` : `<span class="tag">体脂肪を維持</span>`,
+    exercise >= 1 ? `<span class="tag">運動習慣あり</span>` : `<span class="tag">運動習慣を追加</span>`,
+    Number.isFinite(visceral) && visceral >= 10 ? `<span class="tag">内臓脂肪を意識</span>` : ""
+  ].join("");
+
+  $("result").style.display = "block";
+  $("result").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function resetAll(){
+  document.querySelectorAll("input").forEach(x=>{ x.value=""; x.classList.remove("auto","missing"); });
+  document.querySelectorAll("select").forEach(x=>x.selectedIndex=0);
+  $("result").style.display = "none";
+  $("verify").style.display = "none";
+  $("paperPreview").style.display = "none";
+  $("ocrRaw").style.display = "none";
+  $("quality").innerHTML = "";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+</script>
+</body>
+</html>
